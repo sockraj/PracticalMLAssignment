@@ -1,0 +1,293 @@
+Coursera Practical ML assignment
+
+By Socrates Rajkumar Nachiappan
+
+ 
+
+The data comes from this URL: 
+
+http://groupware.les.inf.puc-rio.br/har
+
+ 
+
+The project comes with the training set data and a testing set data as per the assignment page. The training data is available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+
+
+
+The test data is available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+ 
+
+Libraries to load:
+
+library(caret)
+
+## Loading required package: lattice
+
+## Loading required package: ggplot2
+
+ 
+
+library(doParallel)
+
+## Loading required package: foreach
+
+## Loading required package: iterators
+
+## Loading required package: parallel
+
+set.seed(20150125)
+
+ 
+
+ 
+
+ 
+
+Load training data:
+
+ 
+
+download.file('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', 'pml-training.csv')
+
+ 
+
+download.file('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv','pml-test.csv' )
+
+ 
+
+ 
+
+Cleaning up the data:
+
+ 
+
+Convert all blanks, ‘#DIV/0’ and ‘NA’ values to ‘NA’.
+
+trainingSrc   <- read.csv('pml-training.csv', na.strings=c("NA","#DIV/0!", ""))
+
+testSrc       <- read.csv('pml-test.csv' , na.strings=c("NA", "#DIV/0!", ""))
+
+ 
+
+In order for a good testing data set, have arrived at leaving columns with no more than 60% of NA values:
+
+goodVars    <- which((colSums(!is.na(trainingSrc)) >= 0.6*nrow(trainingSrc)))
+
+trainingSrc <- trainingSrc[,goodVars]
+
+testSrc     <- testSrc[,goodVars]
+
+The random forests will be used and in order to do so, some fixes needs to be done.
+
+# remove problem id
+
+testSrc <- testSrc[-ncol(testSrc)]
+
+ 
+
+# fix factor levels
+
+testSrc$new_window <- factor(testSrc$new_window, levels=c("no","yes"))
+
+#Remove non relevant columns like X and cvtd_timestamp colums from the dataset,
+
+trainingSrc <- trainingSrc[,-c(1,5)]
+
+testSrc     <- testSrc[,-c(1,5)]
+
+ 
+
+ 
+
+Partition the data into Training and test sets:
+
+So dividing data as 60% training and 40% testing set.
+
+inTraining  <- createDataPartition(trainingSrc$classe, p = 0.6, list = FALSE)
+
+training    <- trainingSrc[inTraining, ]
+
+testing     <- trainingSrc[-inTraining, ]
+
+ 
+
+Random Forest:
+
+#The outcome variable is class and other columns are in data dataframe.
+
+class <- training$classe
+
+data  <- training[-ncol(training)]
+
+Parallel Random Forest algorithm is used to fit the model. 
+
+Note: that for random forests there is no need for cross-validation to get an unbiased estimate of the test set error. It is estimated internally during the fitting process.
+
+registerDoParallel()
+
+rf <- train(data, class, method="parRF", 
+
+    tuneGrid=data.frame(mtry=3), 
+
+    trControl=trainControl(method="none"))
+
+ 
+
+## Loading required package: randomForest
+
+## randomForest 4.6-10
+
+## Type rfNews() to see new features/changes/bug fixes.
+
+ 
+
+rf
+
+## Parallel Random Forest 
+
+## 
+
+## 11776 samples
+
+##    57 predictor
+
+##     5 classes: 'A', 'B', 'C', 'D', 'E' 
+
+## 
+
+## No pre-processing
+
+## Resampling: None
+
+Plot the importance of the model variables:
+
+plot(varImp(rf))
+
+
+Confusion matrix:
+
+Here we are predict on testing set and generating the confusion matrix for the same.
+
+testingPredictions <- predict(rf, newdata=testing)
+
+ 
+
+confMatrix <- confusionMatrix(testingPredictions,testing$classe)
+
+ 
+
+confMatrix
+
+ 
+
+## Confusion Matrix and Statistics
+
+## 
+
+## 
+
+##       Reference
+
+##Prediction    A    B    C    D    E
+
+##         A 2230    1    0    0    0
+
+##         B    2 1515   10    0    0
+
+##         C    0    2 1356   16    0
+
+##         D    0    0    2 1270    3
+
+##         E    0    0    0    0 1439
+
+## 
+
+##Overall Statistics
+
+                                          
+
+##               Accuracy : 0.9954          
+
+##                 95% CI : (0.9937, 0.9968)
+
+##    No Information Rate : 0.2845          
+
+##   P-Value [Acc > NIR] : < 2.2e-16       
+
+##                                          
+
+##                 Kappa : 0.9942          
+
+## Mcnemar's Test P-Value : NA 
+
+ 
+
+## 
+
+## Statistics by Class:
+
+## 
+
+##                     Class: A Class: B Class: C Class: D Class: E
+
+##Sensitivity            0.9991   0.9980   0.9912   0.9876   0.9979
+
+##Specificity            0.9998   0.9981   0.9972   0.9992   1.0000
+
+##Pos Pred Value         0.9996   0.9921   0.9869   0.9961   1.0000
+
+##Neg Pred Value         0.9996   0.9995   0.9981   0.9976   0.9995
+
+##Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
+
+##Detection Rate         0.2842   0.1931   0.1728   0.1619   0.1834
+
+##Detection Prevalence   0.2843   0.1946   0.1751   0.1625   0.1834
+
+##Balanced Accuracy      0.9995   0.9981   0.9942   0.9934   0.9990
+
+ 
+
+Let’s have a look at the accuracy
+
+confMatrix$overall[1]
+
+##  Accuracy 
+
+## 0.9954117
+
+Based on this, the results have come out good and it is more then 99.54%.
+
+ 
+
+Submission results of Test Set
+
+pml_write_files = function(x){
+
+  n = length(x)
+
+  for(i in 1:n){
+
+    filename = paste0("problem_id_",i,".txt")
+
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+
+  }
+
+}
+
+ 
+
+answers <- predict(rf, testSrc)
+
+ 
+
+pml_write_files(answers)
+
+The problem_id_1 till problem_id_20 files were generated.
