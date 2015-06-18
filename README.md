@@ -1,2 +1,1 @@
-# PracticalMLAssignment - by Socrates Rajkumar Nachiappan
-
+# PracticalMLAssignment - Coursera assignment
