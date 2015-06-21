@@ -1,1 +1,1 @@
-# PracticalMLAssignment - Coursera assignment
+# Practical Machine Learning - Coursera assignment
